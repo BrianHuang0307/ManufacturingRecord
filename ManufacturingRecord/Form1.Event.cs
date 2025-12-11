@@ -18,28 +18,34 @@ namespace ManufacturingRecord
             // ... 其他事件 (例如 DGV 的 CellClick)
         }
 
-        private void _searchButton_Click(object sender, EventArgs e)
+        private void _searchButton_Click(object? sender, EventArgs e)
         {
             // 1. 取得使用者輸入的參數值
+            /*
             string inputProduct = _productTextBox.Text.Trim().ToString();
             string inputFeature = _featureTextBox.Text.Trim().ToString();
             string inputProcess = _processTextBox.Text.Trim().ToString();
+            */
             DateTime inputFromDate = _fromDateTimePicker.Value.Date;
             DateTime inputToDate = _toDateTimePicker.Value.Date;
 
-            if (string.IsNullOrEmpty(inputProduct) || string.IsNullOrEmpty(inputFeature)
-                || string.IsNullOrEmpty(inputProcess) || string.IsNullOrEmpty(inputFromDate.ToString()) || string.IsNullOrEmpty(inputToDate.ToString()))
+            if (string.IsNullOrEmpty(inputFromDate.ToString()) || string.IsNullOrEmpty(inputToDate.ToString())) // || string.IsNullOrEmpty(inputProduct) || string.IsNullOrEmpty(inputFeature) || string.IsNullOrEmpty(inputProcess)
             {
                 MessageBox.Show("請確保欄位輸入完整，不能有空值。", "輸入錯誤");
                 return;
             }
 
+            dgv.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.DisplayedCells;
+
             var db = new ManufacturingRecord.Data.Data();
-            db.QueryMachineManufacturingResume(inputProduct, inputFeature, inputProcess, inputFromDate, inputToDate, dgv);
+            db.QueryMachineManufacturingResume(inputFromDate, inputToDate, dgv);//, inputProduct, inputFeature, inputProcess);
+            dgv.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None;
         }
 
-        private void _exportExcelButton_Click(object sender, EventArgs e)
+        private void _exportExcelButton_Click(object? sender, EventArgs e)
         {
+            var excel = new ManufacturingRecord.Service.ExcelService();
+
             // 呼叫 Excel 匯出 Service，傳入 dgv.DataSource (DataTable)
             if (dgv.Rows.Count == 0)
             {
@@ -50,14 +56,14 @@ namespace ManufacturingRecord
             using var sfd = new SaveFileDialog
             {
                 Filter = "Excel Files|*.xlsx",
-                FileName = "BomRouting_View.xlsx"
+                FileName = _fromDateTimePicker.Text + "_" + _toDateTimePicker.Text + "機器生產履歷.xlsx"
             };
             if (sfd.ShowDialog() != DialogResult.OK) return;
 
             try
             {
                 //  直接匯出當前的 DataGridView 狀態
-                //_excelService.ExportGridToExcel(dgv, sfd.FileName);
+                excel.ExportGridToExcel(dgv, sfd.FileName);
                 MessageBox.Show("匯出完成！（以目前 Grid 顯示為準）");
             }
             catch (Exception ex)

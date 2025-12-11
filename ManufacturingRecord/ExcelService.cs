@@ -6,12 +6,12 @@ using ClosedXML.Excel;
 
 namespace ManufacturingRecord.Service
 {
-    internal class ExcelService
+    internal class ExcelService : IExcelService
     {
         public void ExportGridToExcel(DataGridView grid, string path)
         {
             using var wb = new XLWorkbook();
-            var ws = wb.AddWorksheet("GRID_EXPORT");
+            var ws = wb.AddWorksheet("機器生產履歷");
 
             // 1. 欄位：跳過 _EXPAND_ 欄
             int col = 1;

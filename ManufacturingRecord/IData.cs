@@ -10,6 +10,6 @@ namespace ManufacturingRecord.Data
     internal interface IData
     {
         string SearchSqlFile();
-        void QueryMachineManufacturingResume(string product, string feature, string process, DateTime fromDate, DateTime toDate, DataGridView dgv);
+        void QueryMachineManufacturingResume(DateTime fromDate, DateTime toDate, DataGridView dgv);//, string product, string feature, string process);
     }
 }

@@ -1,7 +1,8 @@
 ﻿using System.Drawing;
-using System.Windows.Forms; // 優先使用 System.Windows.Forms
+using System.Windows.Forms;
 using System;
 using System.IO;
+using System.Reflection;
 
 namespace ManufacturingRecord
 {
@@ -10,15 +11,15 @@ namespace ManufacturingRecord
         private FlowLayoutPanel _flowLayoutPanel;
         private Panel _fromDateGroupPanel;
         private Panel _toDateGroupPanel;
-        private Panel _productGroupPanel;
-        private Panel _featureGroupPanel;
-        private Panel _processGroupPanel;
-        private Label _productLabel;
-        private TextBox _productTextBox;
-        private Label _featureLabel;
-        private TextBox _featureTextBox;
-        private Label _processLabel;
-        private TextBox _processTextBox;
+        //private Panel _productGroupPanel;
+        //private Panel _featureGroupPanel;
+        //private Panel _processGroupPanel;
+        //private Label _productLabel;
+        //private TextBox _productTextBox;
+        //private Label _featureLabel;
+        //private TextBox _featureTextBox;
+        //private Label _processLabel;
+        //private TextBox _processTextBox;
         private Label _fromLabel;
         private DateTimePicker _fromDateTimePicker;
         private Label _toLabel;
@@ -32,8 +33,9 @@ namespace ManufacturingRecord
             // 假設此方法定義在 Form1.Designer.cs 中
             InitializeComponent();
 
+            this.DoubleBuffered = true;
             this.StartPosition = FormStartPosition.CenterScreen;
-            this.ClientSize = new Size(600, 600);
+            this.ClientSize = new Size(600, 800);
             this.Text = "機器生產履歷";
 
             // --- 輔助常數設定 ---
@@ -68,6 +70,7 @@ namespace ManufacturingRecord
                 BorderStyle = BorderStyle.Fixed3D,
             };
 
+            /*
             // --- 產品輸入組件 ---
             _productLabel = CreateLabel(LabelWidth, ControlHeight, "生產料件", LabelRightMargin);
             _productTextBox = CreateTextBox(ControlWidth, ControlHeight, 0);
@@ -82,6 +85,7 @@ namespace ManufacturingRecord
             _processLabel = CreateLabel(LabelWidth, ControlHeight, "工序", LabelRightMargin);
             _processTextBox = CreateTextBox(ControlWidth, ControlHeight, 0);
             _processGroupPanel = CreateGroupPanel(_processLabel, _processTextBox, ControlHeight);
+            */
 
             // --- 開始日期組件 ---
             _fromLabel = CreateLabel(LabelWidth, ControlHeight, "開始", LabelRightMargin);
@@ -112,9 +116,9 @@ namespace ManufacturingRecord
 
             // 1. 將查詢條件 FlowLayoutPanel 加入 Form
             Controls.Add(_flowLayoutPanel);
-            _flowLayoutPanel.Controls.Add(_productGroupPanel);
-            _flowLayoutPanel.Controls.Add(_featureGroupPanel);
-            _flowLayoutPanel.Controls.Add(_processGroupPanel);
+            //_flowLayoutPanel.Controls.Add(_productGroupPanel);
+            //_flowLayoutPanel.Controls.Add(_featureGroupPanel);
+            //_flowLayoutPanel.Controls.Add(_processGroupPanel);
             _flowLayoutPanel.Controls.Add(_fromDateGroupPanel);
             _flowLayoutPanel.Controls.Add(_toDateGroupPanel);
             _flowLayoutPanel.Controls.Add(_searchButton);
@@ -135,6 +139,8 @@ namespace ManufacturingRecord
 
             // 3. 將 dgv 加入 Form
             Controls.Add(dgv);
+            dgv.BringToFront();
+            EnableDoubleBuffered(dgv);
 
             AddEventHandlers();
         }
@@ -178,7 +184,8 @@ namespace ManufacturingRecord
 
             return label;
         }
-        
+
+        /*
         private TextBox CreateTextBox(int width, int height, int margin)
         {
             TextBox textBox = new TextBox
@@ -190,6 +197,7 @@ namespace ManufacturingRecord
 
             return textBox;
         }
+        */
 
         private DateTimePicker CreateDateTimePicker(int width, int height, int margin)
         {
@@ -197,10 +205,22 @@ namespace ManufacturingRecord
             {
                 Width = width,
                 Height = height,
-                Margin = new Padding(margin)
+                Margin = new Padding(margin),
+                CustomFormat = "yyyy-MM-dd"
             };
 
             return dateTimePicker;
+        }
+
+        // 解決視窗resize時卡頓問題
+        private void EnableDoubleBuffered(DataGridView dgv)
+        {
+            // 利用反射取得 DataGridView 的 DoubleBuffered 屬性
+            Type dgvType = dgv.GetType();
+            PropertyInfo? pi = dgvType.GetProperty("DoubleBuffered", BindingFlags.Instance | BindingFlags.NonPublic);
+
+            // 強制設為 true
+            pi?.SetValue(dgv, true, null);
         }
     }
 }

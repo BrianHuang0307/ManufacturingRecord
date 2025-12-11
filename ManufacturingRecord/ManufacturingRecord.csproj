@@ -9,6 +9,14 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="MachineManufacturingResume.sql" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="MachineManufacturingResume.sql" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="ClosedXML" Version="0.105.0" />
     <PackageReference Include="Oracle.ManagedDataAccess.Core" Version="23.26.0" />
   </ItemGroup>

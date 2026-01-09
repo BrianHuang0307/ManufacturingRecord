@@ -1,49 +1,53 @@
-﻿using System.Drawing;
-using System.Windows.Forms;
-using System;
-using System.IO;
+﻿using ManufacturingRecord.Data;
+using ManufacturingRecord.Service;
 using System.Reflection;
 
 namespace ManufacturingRecord
 {
     public partial class Form1 : Form
     {
-        private FlowLayoutPanel _flowLayoutPanel;
-        private Panel _fromDateGroupPanel;
-        private Panel _toDateGroupPanel;
-        //private Panel _productGroupPanel;
-        //private Panel _featureGroupPanel;
-        //private Panel _processGroupPanel;
-        //private Label _productLabel;
-        //private TextBox _productTextBox;
-        //private Label _featureLabel;
-        //private TextBox _featureTextBox;
-        //private Label _processLabel;
-        //private TextBox _processTextBox;
+        // 改用 TableLayoutPanel
+        private TableLayoutPanel _topTable;
+        private TableLayoutPanel _filterTable;
+
         private Label _fromLabel;
         private DateTimePicker _fromDateTimePicker;
         private Label _toLabel;
         private DateTimePicker _toDateTimePicker;
-        private Button _searchButton;
+        private Button _searchDataButton;
         private Button _exportExcelButton;
+        private Label _announcementLabel;
+
+        private Label _productLabel;
+        private TextBox _productTextBox;
+        private Label _productAbbreviationLabel;
+        private TextBox _productAbbreviationTextBox;
+        private Label _featureLabel;
+        private TextBox _featureTextBox;
+        private Label _processLabel;
+        private TextBox _processTextBox;
+        private Label _machineLabel;
+        private TextBox _machineTextBox;
+
+        private Button _selectDgvButton;
+        private Button _calculateDailyCapacityButton;
+        private Button _calculateAverageCapacityButton;
         private DataGridView dgv;
 
-        public Form1()
+        private readonly IData _dataService;
+        private readonly IExcelService _excelService;
+
+        public Form1(IData dataService, IExcelService excelService)
         {
-            // 假設此方法定義在 Form1.Designer.cs 中
             InitializeComponent();
+            _dataService = dataService;
+            _excelService = excelService;
 
             this.DoubleBuffered = true;
             this.StartPosition = FormStartPosition.CenterScreen;
-            this.ClientSize = new Size(600, 800);
+            // 設定初始大小，建議寬一點以容納所有欄位
+            this.ClientSize = new Size(1400, 800);
             this.Text = "機器生產履歷";
-
-            // --- 輔助常數設定 ---
-            const int LabelWidth = 55;
-            const int ControlHeight = 25;
-            const int ControlWidth = 100;
-            const int LabelRightMargin = 5;
-            const int ButtonWidth = 80;
 
             // --- 圖示設置 ---
             try
@@ -60,166 +64,216 @@ namespace ManufacturingRecord
                 Console.WriteLine($"Error loading icon: {ex.Message}");
             }
 
-            _flowLayoutPanel = new FlowLayoutPanel
+            // ==========================================
+            // 1. 初始化控制項 (不設定絕對位置與大小，交給 TableLayout)
+            // ==========================================
+            const int ControlHeight = 28; //稍微加高一點比較好看
+
+            // --- 第一列控制項 ---
+            _fromLabel = CreateLabel("開始日期");
+            _fromDateTimePicker = CreateDateTimePicker(ControlHeight);
+            _toLabel = CreateLabel("結束日期");
+            _toDateTimePicker = CreateDateTimePicker(ControlHeight);
+            _searchDataButton = CreateButton("查詢資料", ControlHeight);
+            _exportExcelButton = CreateButton("匯出Excel", ControlHeight);
+            _announcementLabel = new Label
             {
-                AutoScroll = true,
-                FlowDirection = FlowDirection.LeftToRight,
-                Margin = new Padding(5, 10, 5, 10),
+                Text = "※ 僅包含結案一般工單，計算產能前請先點選「選取資料」",
+                TextAlign = ContentAlignment.MiddleLeft,
+                AutoSize = true,
+                ForeColor = Color.Red,
+                Anchor = AnchorStyles.Left | AnchorStyles.Right // 讓它跟著拉伸
+            };
+
+            // --- 第二列控制項 ---
+            _productLabel = CreateLabel("生產料件");
+            _productTextBox = CreateTextBox(ControlHeight);
+            _productAbbreviationLabel = CreateLabel("品名簡稱");
+            _productAbbreviationTextBox = CreateTextBox(ControlHeight);
+            _featureLabel = CreateLabel("特性編碼");
+            _featureTextBox = CreateTextBox(ControlHeight);
+            _processLabel = CreateLabel("工序");
+            _processTextBox = CreateTextBox(ControlHeight);
+            _machineLabel = CreateLabel("機台編號");
+            _machineTextBox = CreateTextBox(ControlHeight);
+
+            _selectDgvButton = CreateButton("選取資料", ControlHeight);
+
+            _calculateDailyCapacityButton = CreateButton("工單日產能計算", ControlHeight);
+            _calculateDailyCapacityButton.BackColor = Color.MistyRose;
+            _calculateDailyCapacityButton.FlatStyle = FlatStyle.Flat;
+
+            _calculateAverageCapacityButton = CreateButton("平均工單日產能計算", ControlHeight);
+            _calculateAverageCapacityButton.BackColor = Color.Honeydew;
+            _calculateAverageCapacityButton.FlatStyle = FlatStyle.Flat;
+
+            // ==========================================
+            // 2. 建立佈局 (TableLayoutPanel)
+            // ==========================================
+
+            // --- 頂部佈局 (第一列) ---
+            // 欄位規劃: [Label][Picker][Label][Picker][Btn][Btn][Announcement(剩下的空間)]
+            _topTable = new TableLayoutPanel
+            {
                 Dock = DockStyle.Top,
-                BackColor = Color.AliceBlue,
-                BorderStyle = BorderStyle.Fixed3D,
+                AutoSize = true,
+                RowCount = 1,
+                ColumnCount = 7,
+                Padding = new Padding(5),
+                Height = 40,
+                BackColor = Color.AliceBlue
             };
 
-            /*
-            // --- 產品輸入組件 ---
-            _productLabel = CreateLabel(LabelWidth, ControlHeight, "生產料件", LabelRightMargin);
-            _productTextBox = CreateTextBox(ControlWidth, ControlHeight, 0);
-            _productGroupPanel = CreateGroupPanel(_productLabel, _productTextBox, ControlHeight);
+            // 設定欄位比例 (關鍵!)
+            // Label 用 AutoSize，Input 用 Percent (讓它們負責縮放)，Button 用 AutoSize
+            _topTable.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize)); // 開始標籤
+            _topTable.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 15F)); // 開始時間 (15%)
+            _topTable.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize)); // 結束標籤
+            _topTable.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 15F)); // 結束時間 (15%)
+            _topTable.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize)); // 查詢鈕
+            _topTable.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize)); // 匯出鈕
+            _topTable.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 70F)); // 公告 (佔據剩下所有空間)
 
-            // --- 特性編碼輸入組件 ---
-            _featureLabel = CreateLabel(LabelWidth, ControlHeight, "特性編碼", LabelRightMargin);
-            _featureTextBox = CreateTextBox(ControlWidth, ControlHeight, 0);
-            _featureGroupPanel = CreateGroupPanel(_featureLabel, _featureTextBox, ControlHeight);
+            // 加入控制項到 _topTable
+            _topTable.Controls.Add(_fromLabel, 0, 0);
+            _topTable.Controls.Add(_fromDateTimePicker, 1, 0);
+            _topTable.Controls.Add(_toLabel, 2, 0);
+            _topTable.Controls.Add(_toDateTimePicker, 3, 0);
+            _topTable.Controls.Add(_searchDataButton, 4, 0);
+            _topTable.Controls.Add(_exportExcelButton, 5, 0);
+            _topTable.Controls.Add(_announcementLabel, 6, 0);
 
-            // --- 工序輸入組件 ---
-            _processLabel = CreateLabel(LabelWidth, ControlHeight, "工序", LabelRightMargin);
-            _processTextBox = CreateTextBox(ControlWidth, ControlHeight, 0);
-            _processGroupPanel = CreateGroupPanel(_processLabel, _processTextBox, ControlHeight);
-            */
 
-            // --- 開始日期組件 ---
-            _fromLabel = CreateLabel(LabelWidth, ControlHeight, "開始", LabelRightMargin);
-            _fromDateTimePicker = CreateDateTimePicker(ControlWidth, ControlHeight, 0);
-            _fromDateGroupPanel = CreateGroupPanel(_fromLabel, _fromDateTimePicker, ControlHeight);
-
-            // --- 結束日期組件 ---
-            _toLabel = CreateLabel(LabelWidth, ControlHeight, "結束", LabelRightMargin);
-            _toDateTimePicker = CreateDateTimePicker(ControlWidth, ControlHeight, 0);
-            _toDateGroupPanel = CreateGroupPanel(_toLabel, _toDateTimePicker, ControlHeight);
-
-            // --- 查詢按鈕 ---
-            _searchButton = new Button
+            // --- 過濾器佈局 (第二列) ---
+            // 欄位規劃: [Lbl][Txt] * 5組 + [SelectBtn] + [DailyBtn] + [AvgBtn]
+            // 共 11 個欄位
+            _filterTable = new TableLayoutPanel
             {
-                Text = "查詢",
-                Width = ButtonWidth,
-                Height = ControlHeight,
-                Margin = new Padding(5, 10, 5, 10),
+                Dock = DockStyle.Top,
+                AutoSize = true,
+                RowCount = 1,
+                ColumnCount = 13,
+                Padding = new Padding(5),
+                Height = 40,
+                BackColor = Color.AliceBlue
             };
 
-            _exportExcelButton = new Button
+            // 設定欄位比例
+            // 文字框設為 20% 讓它們均分寬度，按鈕設為 AutoSize 或固定比例
+            for (int i = 0; i < 5; i++)
             {
-                Text = "匯出Excel",
-                Width = ButtonWidth,
-                Height = ControlHeight,
-                Margin = new Padding(15, 10, 15, 10),
-            };
+                _filterTable.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize)); // 標籤 (Auto)
+                _filterTable.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 20F)); // 輸入框 (20%)
+            }
+            // 3個按鈕
+            _filterTable.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            _filterTable.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            _filterTable.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
 
-            // 1. 將查詢條件 FlowLayoutPanel 加入 Form
-            Controls.Add(_flowLayoutPanel);
-            //_flowLayoutPanel.Controls.Add(_productGroupPanel);
-            //_flowLayoutPanel.Controls.Add(_featureGroupPanel);
-            //_flowLayoutPanel.Controls.Add(_processGroupPanel);
-            _flowLayoutPanel.Controls.Add(_fromDateGroupPanel);
-            _flowLayoutPanel.Controls.Add(_toDateGroupPanel);
-            _flowLayoutPanel.Controls.Add(_searchButton);
-            _flowLayoutPanel.Controls.Add(_exportExcelButton);
+            // 加入控制項到 _filterTable
+            _filterTable.Controls.Add(_productLabel, 0, 0);
+            _filterTable.Controls.Add(_productTextBox, 1, 0);
+            _filterTable.Controls.Add(_productAbbreviationLabel, 2, 0);
+            _filterTable.Controls.Add(_productAbbreviationTextBox, 3, 0);
+            _filterTable.Controls.Add(_featureLabel, 4, 0);
+            _filterTable.Controls.Add(_featureTextBox, 5, 0);
+            _filterTable.Controls.Add(_processLabel, 6, 0);
+            _filterTable.Controls.Add(_processTextBox, 7, 0);
+            _filterTable.Controls.Add(_machineLabel, 8, 0);
+            _filterTable.Controls.Add(_machineTextBox, 9, 0);
 
-            // 2. 新增 DataGridView
+            _filterTable.Controls.Add(_selectDgvButton, 10, 0);
+            _filterTable.Controls.Add(_calculateDailyCapacityButton, 11, 0);
+            _filterTable.Controls.Add(_calculateAverageCapacityButton, 12, 0);
+
+
+            // --- DataGridView ---
             dgv = new DataGridView
             {
                 Dock = DockStyle.Fill,
                 ReadOnly = true,
-                AllowUserToAddRows = false,
                 BackgroundColor = Color.AliceBlue,
                 BorderStyle = BorderStyle.Fixed3D,
-                Margin = new Padding(10, 10, 10, 10),
+                Margin = new Padding(10),
                 AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.DisplayedCells,
-                AutoGenerateColumns = true
+                AutoGenerateColumns = true,
+                AllowUserToOrderColumns = true
             };
 
-            // 3. 將 dgv 加入 Form
-            Controls.Add(dgv);
-            dgv.BringToFront();
-            EnableDoubleBuffered(dgv);
+            // ==========================================
+            // 3. 加入 Form
+            // ==========================================
+            // 注意順序：Dock 是 "堆疊" 的概念。
+            // 先加的 Dock=Top 會在最上面，後加的 Dock=Top 會接在下面。
+            // 但如果全部一起加，通常反過來思考：
+            // 我們希望 dgv 填滿中間，TopTable 在最上，FilterTable 在中間。
 
+            // 這裡使用最直覺的方式：依照順序加入 Controls 集合，
+            // 但因為 Dock 屬性的特性，最後加入的 Dock.Fill 會佔據剩餘空間。
+
+            this.Controls.Add(dgv);          // Fill (最底層)
+            this.Controls.Add(_filterTable); // Top (第二層，卡在 TopTable 下面)
+            this.Controls.Add(_topTable);    // Top (最上層)
+
+            EnableDoubleBuffered(dgv);
             AddEventHandlers();
         }
 
-        /// <summary>
-        /// 輔助方法：創建一個 Panel 來包含 Label 和 Control，並進行手動定位。
-        /// **修正：明確指定 control 參數的類型為 System.Windows.Forms.Control**
-        /// </summary>
-        private Panel CreateGroupPanel(Label label, System.Windows.Forms.Control control, int controlHeight)
+        // --- 簡化後的輔助方法 (不再需要傳入 width/margin/position) ---
+
+        private Label CreateLabel(string text)
         {
-            Panel panel = new Panel
+            return new Label
             {
-                Margin = new Padding(5, 10, 5, 10),
-                Height = controlHeight,
-                Width = label.Width + control.Width + label.Margin.Right + 5,
+                Text = text,
+                AutoSize = true,
+                Anchor = AnchorStyles.Right, // 靠右對齊 (靠近輸入框)
+                TextAlign = ContentAlignment.MiddleRight,
+                Margin = new Padding(5, 0, 0, 0) // 左邊留點空隙
             };
-
-            panel.Controls.Add(label);
-            panel.Controls.Add(control);
-
-            label.Top = 0;
-            control.Left = label.Right + label.Margin.Right;
-            control.Top = 0;
-
-            return panel;
         }
 
-        /// <summary>
-        /// 輔助方法：統一設置 Label 的屬性。
-        /// </summary>
-        private Label CreateLabel(int width, int height, string labelName, int rightMargin)
+        private TextBox CreateTextBox(int height)
         {
-            Label label = new Label
+            return new TextBox
             {
-                Width = width,
                 Height = height,
-                Text = labelName,
-                Margin = new Padding(0, 0, rightMargin, 0),
-                TextAlign = ContentAlignment.MiddleRight
+                Dock = DockStyle.Fill, // 填滿格子
+                Margin = new Padding(3)
             };
-
-            return label;
         }
 
-        /*
-        private TextBox CreateTextBox(int width, int height, int margin)
+        private DateTimePicker CreateDateTimePicker(int height)
         {
-            TextBox textBox = new TextBox
+            return new DateTimePicker
             {
-                Width = width,
                 Height = height,
-                Margin = new Padding(margin)
+                Dock = DockStyle.Fill, // 填滿格子
+                Format = DateTimePickerFormat.Custom,
+                CustomFormat = "yyyy-MM-dd",
+                Margin = new Padding(3)
             };
-
-            return textBox;
         }
-        */
 
-        private DateTimePicker CreateDateTimePicker(int width, int height, int margin)
+        private Button CreateButton(string text, int height)
         {
-            DateTimePicker dateTimePicker = new DateTimePicker
+            return new Button
             {
-                Width = width,
+                Text = text,
                 Height = height,
-                Margin = new Padding(margin),
-                CustomFormat = "yyyy-MM-dd"
+                AutoSize = true, // 讓按鈕寬度隨文字自動調整
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                Padding = new Padding(10, 0, 10, 0), // 增加內部文字間距
+                Margin = new Padding(3),
+                Cursor = Cursors.Hand
             };
-
-            return dateTimePicker;
         }
 
-        // 解決視窗resize時卡頓問題
+        // 避免畫面在resize時因為資料量過多，造成卡頓情形
         private void EnableDoubleBuffered(DataGridView dgv)
         {
-            // 利用反射取得 DataGridView 的 DoubleBuffered 屬性
             Type dgvType = dgv.GetType();
             PropertyInfo? pi = dgvType.GetProperty("DoubleBuffered", BindingFlags.Instance | BindingFlags.NonPublic);
-
-            // 強制設為 true
             pi?.SetValue(dgv, true, null);
         }
     }

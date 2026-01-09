@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Diagnostics;
-using System.IO; // 需要保留，因為 Stream 和 StreamReader 用得到
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text;
@@ -12,13 +12,27 @@ using System.Windows.Forms;
 
 namespace ManufacturingRecord.Data
 {
-    internal class Data // : IData (如果你有介面請保留)
+    internal class Data : IData 
     {
-        private const string connectionString = "";
-
         /// <summary>
         /// 從內嵌資源中讀取 SQL 檔案內容
         /// </summary>
+        private const string connectionString = "";
+        /* Api用
+        private string GetConnectionString()
+        {
+            // 建立設定檔建置器
+            var builder = new ConfigurationBuilder()
+                .SetBasePath(Directory.GetCurrentDirectory()) // 設定目前目錄
+                .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true);
+
+            IConfiguration config = builder.Build();
+
+            // 讀取 ConnectionStrings 區段下的 OracleDB
+            return config.GetConnectionString("OracleDB");
+        }
+        */
+
         private string GetSqlFromResource()
         {
             var assembly = Assembly.GetExecutingAssembly();
@@ -44,7 +58,7 @@ namespace ManufacturingRecord.Data
             }
         }
 
-        public void QueryMachineManufacturingResume(DateTime fromDate, DateTime toDate, DataGridView dgv)
+        public DataTable QueryMachineManufacturingResume(DateTime fromDate, DateTime toDate)
         {
             DataTable dt = new DataTable();
 
@@ -52,6 +66,7 @@ namespace ManufacturingRecord.Data
             {
                 // 改用內嵌資源讀取 SQL
                 string sql = GetSqlFromResource();
+                // string connectionString = GetConnectionString(); Api用
 
                 using (var conn = new OracleConnection(connectionString))
                 using (var cmd = new OracleCommand(sql, conn))
@@ -59,7 +74,7 @@ namespace ManufacturingRecord.Data
                 {
                     conn.Open();
 
-                    // 設定參數 (注意：Oracle 參數順序可能重要，視你的 BindByName 設定而定，建議開啟 BindByName)
+                    // 設定參數
                     cmd.BindByName = true;
 
                     cmd.Parameters.Add(new OracleParameter("from_date", OracleDbType.Date)).Value = fromDate;
@@ -68,7 +83,7 @@ namespace ManufacturingRecord.Data
                     dt.Clear();
                     adapter.Fill(dt);
 
-                    // 更新 UI
+                    /* 更新 UI
                     dgv.SuspendLayout();
                     dgv.DataSource = null;
                     dgv.Columns.Clear();
@@ -84,6 +99,7 @@ namespace ManufacturingRecord.Data
                     {
                         MessageBox.Show("查詢成功，但沒有符合條件的資料。", "無資料");
                     }
+                    */
                 }
             }
             catch (OracleException ex)
@@ -95,6 +111,8 @@ namespace ManufacturingRecord.Data
                 // 這裡會捕捉到找不到資源的錯誤 (如果是資源名稱打錯)
                 MessageBox.Show($"系統發生錯誤：\n{ex.Message}", "錯誤", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
+
+            return dt;
         }
     }
 }

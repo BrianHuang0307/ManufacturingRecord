@@ -7,9 +7,8 @@ using System.Data;
 
 namespace ManufacturingRecord.Data
 {
-    internal interface IData
+    public interface IData
     {
-        string SearchSqlFile();
-        void QueryMachineManufacturingResume(DateTime fromDate, DateTime toDate, DataGridView dgv);//, string product, string feature, string process);
+        DataTable QueryMachineManufacturingResume(DateTime fromDate, DateTime toDate);//, DataGridView dgv, string product, string feature, string process);
     }
 }

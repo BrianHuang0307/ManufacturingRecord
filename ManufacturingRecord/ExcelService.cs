@@ -13,7 +13,6 @@ namespace ManufacturingRecord.Service
             using var wb = new XLWorkbook();
             var ws = wb.AddWorksheet("機器生產履歷");
 
-            // 1. 欄位：跳過 _EXPAND_ 欄
             int col = 1;
             var exportColumns = grid.Columns
                 .Cast<DataGridViewColumn>()
@@ -26,7 +25,6 @@ namespace ManufacturingRecord.Service
                 col++;
             }
 
-            // 2. 資料列
             int rowIndex = 2;
             foreach (DataGridViewRow row in grid.Rows)
             {

@@ -1,3 +1,6 @@
+using ManufacturingRecord.Data;
+using ManufacturingRecord.Service;
+
 namespace ManufacturingRecord
 {
     internal static class Program
@@ -11,7 +14,11 @@ namespace ManufacturingRecord
             // To customize application configuration such as set high DPI settings or default font,
             // see https://aka.ms/applicationconfiguration.
             ApplicationConfiguration.Initialize();
-            Application.Run(new Form1());
+
+            IData dataService = new ManufacturingRecord.Data.Data();
+            IExcelService excelService = new ExcelService();
+
+            Application.Run(new Form1(dataService, excelService));
         }
     }
 }

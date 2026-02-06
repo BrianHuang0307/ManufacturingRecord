@@ -10,5 +10,7 @@ namespace ManufacturingRecord.Data
     public interface IData
     {
         DataTable QueryMachineManufacturingResume(DateTime fromDate, DateTime toDate);//, DataGridView dgv, string product, string feature, string process);
+
+        DataTable QueryProductErrorCode();
     }
 }

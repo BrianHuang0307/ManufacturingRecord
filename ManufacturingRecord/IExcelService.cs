@@ -6,6 +6,7 @@ namespace ManufacturingRecord.Service
     public interface IExcelService
     {
         /// 直接把當前 DataGridView 的畫面匯出到 Excel。
-        void ExportGridToExcel(DataGridView grid, string path);
+        void ExportDataToExcel(DataTable dataTable, string path, string sheetName);
+        // void ExportDataToExcel(DataGridView dgv, string path, string sheetName);
     }
 }

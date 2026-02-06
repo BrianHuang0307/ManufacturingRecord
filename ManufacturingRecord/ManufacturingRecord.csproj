@@ -11,10 +11,12 @@
 
   <ItemGroup>
     <None Remove="MachineManufacturingResume.sql" />
+    <None Remove="ProductErrorCode.sql" />
   </ItemGroup>
 
   <ItemGroup>
     <EmbeddedResource Include="MachineManufacturingResume.sql" />
+    <EmbeddedResource Include="ProductErrorCode.sql" />
   </ItemGroup>
 
   <ItemGroup>

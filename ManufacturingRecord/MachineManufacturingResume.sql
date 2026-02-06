@@ -1,9 +1,9 @@
 SELECT DISTINCT shb10 生產料件,
                 imaud03 品名簡稱,
                 sfb95 特性編碼,
-                shb05 工單編號,
+                shb06 工序,
                 shb09 機台編號,
-				shb06 工序,
+                shb05 工單編號,
 				shb03 完工日期,
                 shb031 完工時間,
                 shb07 工作中心,
@@ -14,7 +14,8 @@ SELECT DISTINCT shb10 生產料件,
                 shb111 良品轉出數量,
                 shb112 當站報廢數量,
                 ecb19 "標準人工工時(秒/pcs)",
-                ecb21 "標準機器工時(秒/pcs)"
+                ecb21 "標準機器工時(秒/pcs)",
+                sfb09 完工入庫數量
 FROM t1_shb_file shbf
 LEFT JOIN t1_sfb_file sfbf ON shbf.shb05 = sfbf.sfb01
 LEFT JOIN t1_ecb_file ecbf ON shbf.shb10 = ecbf.ecb01

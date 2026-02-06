@@ -33,6 +33,7 @@ namespace ManufacturingRecord.Data
         }
         */
 
+        /*
         private string GetSqlFromResource()
         {
             var assembly = Assembly.GetExecutingAssembly();
@@ -57,6 +58,36 @@ namespace ManufacturingRecord.Data
                 }
             }
         }
+        */
+
+        private string GetSqlFromResource(string sqlFileName)
+        {
+            var assembly = Assembly.GetExecutingAssembly();
+
+            // 改用字串插值，動態組合資源名稱
+            // 假設Namespace 固定是 ManufacturingRecord
+            string resourceName = $"ManufacturingRecord.{sqlFileName}";
+
+            // 或者更安全的寫法 (避免 Namespace 變更找不到)：
+            // var resourceName = assembly.GetManifestResourceNames()
+            //     .FirstOrDefault(r => r.EndsWith(sqlFileName, StringComparison.OrdinalIgnoreCase));
+
+            using (Stream? stream = assembly.GetManifestResourceStream(resourceName))
+            {
+                if (stream == null)
+                {
+                    string[] existingResources = assembly.GetManifestResourceNames();
+                    // 錯誤訊息也順便更新，方便除錯
+                    string errorMsg = $"找不到內嵌資源: {resourceName}\n請確認檔案屬性 'Build Action' 是否已設為 'Embedded Resource'。\n\n現有資源:\n{string.Join("\n", existingResources)}";
+                    throw new Exception(errorMsg);
+                }
+
+                using (StreamReader reader = new StreamReader(stream))
+                {
+                    return reader.ReadToEnd();
+                }
+            }
+        }
 
         public DataTable QueryMachineManufacturingResume(DateTime fromDate, DateTime toDate)
         {
@@ -65,7 +96,7 @@ namespace ManufacturingRecord.Data
             try
             {
                 // 改用內嵌資源讀取 SQL
-                string sql = GetSqlFromResource();
+                string sql = GetSqlFromResource("MachineManufacturingResume.sql");
                 // string connectionString = GetConnectionString(); Api用
 
                 using (var conn = new OracleConnection(connectionString))
@@ -100,6 +131,39 @@ namespace ManufacturingRecord.Data
                         MessageBox.Show("查詢成功，但沒有符合條件的資料。", "無資料");
                     }
                     */
+                }
+            }
+            catch (OracleException ex)
+            {
+                MessageBox.Show($"資料庫查詢發生錯誤：\n{ex.Message}", "資料庫錯誤", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            catch (Exception ex)
+            {
+                // 這裡會捕捉到找不到資源的錯誤 (如果是資源名稱打錯)
+                MessageBox.Show($"系統發生錯誤：\n{ex.Message}", "錯誤", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+
+            return dt;
+        }
+
+        public DataTable QueryProductErrorCode()
+        {
+            DataTable dt = new DataTable();
+
+            try
+            {
+                // 改用內嵌資源讀取 SQL
+                string sql = GetSqlFromResource("ProductErrorCode.sql");
+                // string connectionString = GetConnectionString(); Api用
+
+                using (var conn = new OracleConnection(connectionString))
+                using (var cmd = new OracleCommand(sql, conn))
+                using (var adapter = new OracleDataAdapter(cmd))
+                {
+                    conn.Open();
+
+                    dt.Clear();
+                    adapter.Fill(dt);
                 }
             }
             catch (OracleException ex)
